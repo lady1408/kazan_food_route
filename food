@@ -1,5 +1,5 @@
 import streamlit as st
-import folium
+import foliu
 from streamlit_folium import st_folium
 from openrouteservice import Client
 from shapely.geometry import LineString, Point
