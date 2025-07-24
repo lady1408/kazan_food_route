@@ -1,0 +1,64 @@
+
+import streamlit as st
+import folium
+from streamlit_folium import st_folium
+from openrouteservice import Client
+from shapely.geometry import LineString, Point
+import requests
+
+st.set_page_config(page_title="Где поесть в Казани", layout="wide")
+st.title("🍽️ Где поесть по пути в Казани")
+
+# Ввод точек маршрута
+start = st.text_input("Начальная точка (адрес)", "Казань, Кремль")
+end = st.text_input("Конечная точка (адрес)", "Казань, ТЦ Кольцо")
+
+# API ключ OpenRouteService
+ORS_API_KEY = st.secrets["ORS_API_KEY"]  # секретный ключ из streamlit cloud
+client = Client(key=ORS_API_KEY)
+
+# Функция геокодирования через Nominatim
+def geocode(address):
+    url = f'https://nominatim.openstreetmap.org/search?q={address}&format=json'
+    res = requests.get(url).json()
+    return float(res[0]['lat']), float(res[0]['lon'])
+
+if st.button("Показать маршрут и кафе"):
+    try:
+        start_coords = geocode(start)
+        end_coords = geocode(end)
+
+        route = client.directions(
+            coordinates=[(start_coords[1], start_coords[0]), (end_coords[1], end_coords[0])],
+            profile='foot-walking',
+            format='geojson'
+        )
+
+        route_coords = route['features'][0]['geometry']['coordinates']
+        line = LineString(route_coords)
+
+        m = folium.Map(location=start_coords, zoom_start=14)
+        folium.PolyLine(locations=[(lat, lon) for lon, lat in route_coords], color="blue").add_to(m)
+
+        buffer = line.buffer(0.005)  # Радиус зоны вдоль маршрута
+        bbox = buffer.bounds
+
+        overpass_url = "http://overpass-api.de/api/interpreter"
+        overpass_query = f"""
+        [out:json];
+        node["amenity"~"restaurant|cafe|fast_food"]({bbox[1]},{bbox[0]},{bbox[3]},{bbox[2]});
+        out;
+        """
+        response = requests.get(overpass_url, params={'data': overpass_query})
+        data = response.json()
+
+        for el in data['elements']:
+            lat, lon = el['lat'], el['lon']
+            name = el.get('tags', {}).get('name', 'Без названия')
+            if buffer.contains(Point(lon, lat)):
+                folium.Marker(location=[lat, lon], popup=name, icon=folium.Icon(color='green')).add_to(m)
+
+        st_folium(m, width=900, height=600)
+
+    except Exception as e:
+        st.error(f"Ошибка: {e}")
