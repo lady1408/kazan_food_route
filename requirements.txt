@@ -1,1 +1,6 @@
 streamlit
+folium
+openrouteservice
+shapely
+streamlit-folium
+requests
