@@ -1,4 +1,3 @@
-
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
@@ -43,12 +42,12 @@ if st.button("Показать маршрут и кафе"):
         buffer = line.buffer(0.005)  # Радиус зоны вдоль маршрута
         bbox = buffer.bounds
 
+        overpass_query = (
+            '[out:json];'
+            f'node["amenity"~"restaurant|cafe|fast_food"]({bbox[1]},{bbox[0]},{bbox[3]},{bbox[2]});'
+            'out;'
+        )
         overpass_url = "http://overpass-api.de/api/interpreter"
-        overpass_query = f"""
-        [out:json];
-        node["amenity"~"restaurant|cafe|fast_food"]({bbox[1]},{bbox[0]},{bbox[3]},{bbox[2]});
-        out;
-        """
         response = requests.get(overpass_url, params={'data': overpass_query})
         data = response.json()
 
